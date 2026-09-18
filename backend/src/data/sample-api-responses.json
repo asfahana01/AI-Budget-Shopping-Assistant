@@ -1,0 +1,31 @@
+{
+  "chat_turn_1": {
+    "request": { "message": "I have ₹5000." },
+    "response_shape": {
+      "status": "needs_clarification",
+      "missing": ["items"],
+      "assistantMessage": "What would you like to buy?"
+    }
+  },
+  "recommend_success": {
+    "request": {
+      "budget": 5000,
+      "items": ["backpack", "headphones", "smartwatch"],
+      "preferences": ["college use", "good battery life"]
+    },
+    "notes": "Totals are computed on the backend. The LLM only explains verified combinations."
+  },
+  "no_combination": {
+    "request": {
+      "budget": 1500,
+      "items": ["backpack", "headphones", "smartwatch"]
+    },
+    "expectedCode": "NO_COMBINATION_WITHIN_BUDGET"
+  },
+  "image_analysis": {
+    "productType": "backpack",
+    "color": "black",
+    "style": "casual",
+    "visualDescription": "Black casual backpack with multiple visible compartments."
+  }
+}
