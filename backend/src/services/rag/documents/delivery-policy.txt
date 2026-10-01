@@ -1,0 +1,3 @@
+Delivery policy reference
+
+Questions about delivery, shipping, dispatch, arrival dates, and delivery fees belong to the delivery policy. The repository's available source material does not specify delivery timelines, service areas, or fees. Those details are unavailable and must be confirmed with the retailer. Do not infer delivery terms.

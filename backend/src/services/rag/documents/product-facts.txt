@@ -1,0 +1,3 @@
+Product fact, care, and compatibility reference
+
+Verified product facts are loaded from the backend catalog at query time. Only catalog-listed names, categories, brands, descriptions, features, prices, and availability may be stated as product facts. The catalog does not establish care instructions or compatibility unless those details are explicitly present in a product description or feature. If a requested fact is absent, state that it is unavailable in the catalog. Prices and availability must be revalidated by the backend shopping pipeline; this knowledge source must never calculate budgets or totals.
