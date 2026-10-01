@@ -24,6 +24,7 @@ export function normalizeProducts(products) {
     name: String(item.name).trim(),
     category: normalizeCategory(item.category),
     brand: String(item.brand || "Unknown").trim(),
+    color: String(item.color || "").trim(),
     price: normalizePrice(item.price),
     rating: normalizeRating(item.rating),
     description: String(item.description || "").trim(),
@@ -132,6 +133,7 @@ export function processProductPipeline(rawProducts, requirements, visualContext)
       ranked: ranked.length,
       sentToLlm: limited.length
     },
+    allUnique: unique,
     products: limited,
     allRanked: ranked
   };
