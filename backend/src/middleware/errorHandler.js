@@ -7,6 +7,7 @@ export function errorHandler(err, req, res, next) {
     MISSING_BUDGET: { status: 400, message: "Budget is required." },
     MISSING_ITEMS: { status: 400, message: "Tell me which products you need." },
     INVALID_IMAGE: { status: 400, message: "Please upload a JPEG, PNG, WebP, or GIF image." },
+    INVALID_PRODUCT_ID: { status: 400, message: "One or more requested products were not found in the verified catalog." },
     LLM_FAILURE: { status: 502, message: "The language model is unavailable right now." },
     VISION_FAILURE: { status: 502, message: "Image analysis failed. Try another photo." },
     PRODUCT_API_FAILURE: { status: 502, message: "The product catalog could not be loaded." },
