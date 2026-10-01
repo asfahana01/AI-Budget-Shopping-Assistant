@@ -7,8 +7,16 @@ import { analyzeProductImage } from "../services/vision.js";
 import { extractRequirements } from "../services/requirementExtractor.js";
 import { buildRecommendation, conversationalRecommend } from "../services/recommend.js";
 import { appendMessage, getSession, saveSession } from "../services/sessionStore.js";
-import { chatSchema, optimizeSchema, recommendSchema, validate } from "../middleware/validate.js";
+import { chatSchema, graphQuerySchema, imagePreviewSchema, optimizeSchema, recommendSchema, toolRequestSchema, validate } from "../middleware/validate.js";
 import { normalizeCategory } from "../utils/normalize.js";
+import { knowledgeQuerySchema } from "../middleware/validate.js";
+import { answerWithRag } from "../services/rag/ragAnswer.js";
+import { queryProductGraph } from "../services/graph/graphRetriever.js";
+import { buildGraphContext } from "../services/graph/graphContext.js";
+import { callTool } from "../mcp/server.js";
+import { generateBundlePreview, resolveVerifiedProducts } from "../services/imageGeneration.js";
+import { routeQuery } from "../services/queryRouter.js";
+import { answerWithAdaptiveRag } from "../services/rag/adaptiveRag.js";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -19,6 +27,53 @@ export const apiRouter = Router();
 
 apiRouter.get("/health", (_req, res) => {
   res.json({ ok: true, service: "ai-budget-shopping-assistant" });
+});
+
+apiRouter.post("/knowledge/query", async (req, res, next) => {
+  try {
+    const body = validate(knowledgeQuerySchema, req.body);
+    res.json(await answerWithRag(body.query));
+  } catch (error) {
+    next(error);
+  }
+});
+
+apiRouter.post("/graph/query", async (req, res, next) => {
+  try {
+    const body = validate(graphQuerySchema, req.body);
+    const graph = await queryProductGraph(body.query);
+    const names = graph.relatedProducts.slice(0, 5).map((product) => product.name);
+    res.json({
+      status: graph.relatedProducts.length ? "ok" : "insufficient_context",
+      answer: names.length ? `Catalog relationships matched: ${names.join(", ")}.` : "I could not find matching in-stock products in the catalog graph.",
+      ...graph,
+      graphContext: buildGraphContext(graph)
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+apiRouter.post("/tools/:toolName", async (req, res, next) => {
+  try {
+    const body = validate(toolRequestSchema, req.body);
+    const result = await callTool(req.params.toolName, body.input);
+    res.status(result.ok ? 200 : result.error.code === "UNKNOWN_TOOL" ? 404 : 400).json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+apiRouter.post("/generate-shopping-preview", async (req, res, next) => {
+  try {
+    const body = validate(imagePreviewSchema, req.body);
+    const raw = await fetchProductsFromApi();
+    const catalog = processProductPipeline(raw, { items: [], preferences: [] });
+    const products = resolveVerifiedProducts(body.productIds, catalog.allUnique);
+    res.json(await generateBundlePreview(products, body.style));
+  } catch (error) {
+    next(error);
+  }
 });
 
 apiRouter.get("/products", async (req, res, next) => {
@@ -83,23 +138,132 @@ apiRouter.post("/chat", async (req, res, next) => {
   try {
     const body = validate(chatSchema, req.body);
     const session = await getSession(body.sessionId);
-    const extracted = await extractRequirements(body.message, session.requirements);
-    session.requirements = extracted.requirements;
     await appendMessage(session, "user", body.message);
+    const route = routeQuery(body.message);
+    let result;
 
-    const result = await conversationalRecommend({
-      requirements: extracted.requirements,
-      missing: extracted.missing,
-      conversationHistory: session.messages,
-      visualContext: session.visualContext
-    });
+    if (route === "shopping") {
+      const extracted = await extractRequirements(body.message, session.requirements);
+      session.requirements = extracted.requirements;
+      result = {
+        route,
+        extraction: extracted,
+        ...(await conversationalRecommend({
+          requirements: extracted.requirements,
+          missing: extracted.missing,
+          conversationHistory: session.messages,
+          visualContext: session.visualContext
+        }))
+      };
+    } else if (route === "knowledge") {
+      const answer = await answerWithAdaptiveRag(body.message);
+      result = { route, ...answer, assistantMessage: answer.answer };
+    } else if (route === "graph") {
+      const graph = await queryProductGraph(body.message);
+      const extracted = await extractRequirements(body.message, session.requirements);
+      session.requirements = extracted.requirements;
+      if (!extracted.missing.length) {
+        const recommendation = await buildRecommendation({
+          requirements: extracted.requirements,
+          conversationHistory: session.messages,
+          visualContext: session.visualContext,
+          candidateProductIds: graph.sources
+        });
+        result = {
+          route,
+          graph,
+          ...recommendation,
+          assistantMessage: recommendation.assistantMessage || recommendation.recommendation?.reason || recommendation.message
+        };
+      } else {
+        const names = graph.relatedProducts.slice(0, 5).map((product) => product.name);
+        result = {
+          route,
+          status: graph.relatedProducts.length ? "ok" : "insufficient_context",
+          graph,
+          assistantMessage: names.length
+            ? `Related in-stock catalog products: ${names.join(", ")}.`
+            : "I could not find matching in-stock products in the catalog graph."
+        };
+        if (extracted.missing.includes("budget")) result.assistantMessage += " Share a budget if you want me to verify a bundle total.";
+      }
+    } else if (route === "tool") {
+      const extracted = await extractRequirements(body.message, session.requirements);
+      const lower = body.message.toLowerCase();
+      let toolName;
+      let input;
+      if (/\bget policy\b/i.test(body.message)) {
+        toolName = "get_policy";
+        input = { topic: body.message };
+      } else if (/\b(check|verify)\b.{0,30}\bbundle\b/i.test(body.message)) {
+        toolName = "check_budget_bundle";
+        input = {
+          budget: extracted.requirements.budget,
+          items: extracted.requirements.items,
+          preferences: extracted.requirements.preferences
+        };
+      } else if (/\b(details?|product id)\b/i.test(body.message)) {
+        const productId = body.message.match(/\b[A-Z][A-Z0-9_-]{1,79}\b/i)?.[0];
+        toolName = "get_product_details";
+        input = { productId };
+      } else {
+        const searchTerms = body.message
+          .replace(/\b(search|products?|show|me|find|in.stock|available|under|below|rupees?|rs\.?|inr)\b/gi, " ")
+          .replace(/[₹$\d,]/g, " ").replace(/\s+/g, " ").trim();
+        toolName = "search_products";
+        input = {
+          query: searchTerms || extracted.requirements.items.join(" "),
+          category: extracted.requirements.items[0],
+          maxPrice: extracted.requirements.budget || undefined,
+          inStockOnly: true
+        };
+      }
+      const tool = await callTool(toolName, input);
+      const structured = tool.structuredContent;
+      const names = structured?.products?.slice(0, 5).map((product) => product.name) || [];
+      result = {
+        route,
+        toolName,
+        toolResult: structured || tool.error,
+        status: tool.ok ? "ok" : "error",
+        assistantMessage: tool.ok
+          ? names.length ? `Verified catalog results: ${names.join(", ")}.` : JSON.stringify(structured)
+          : tool.error.message
+      };
+    } else if (route === "image_generation") {
+      const extracted = await extractRequirements(body.message, session.requirements);
+      const items = extracted.requirements.items;
+      if (!items.length) {
+        result = { route, status: "needs_clarification", assistantMessage: "Which product types should appear in the visual preview?" };
+      } else {
+        const raw = await fetchProductsFromApi();
+        const processed = processProductPipeline(raw, extracted.requirements);
+        const selected = items.map((item) => processed.allRanked.find((product) => product.category === item)).filter(Boolean);
+        if (selected.length !== items.length) {
+          result = { route, status: "insufficient_context", assistantMessage: "I could not find in-stock catalog products for every requested preview item." };
+        } else {
+          const preview = await generateBundlePreview(selected, body.message);
+          result = {
+            route,
+            status: preview.status,
+            preview,
+            assistantMessage: preview.status === "ok" ? preview.disclaimer : preview.message
+          };
+        }
+      }
+    } else {
+      result = {
+        route,
+        status: "needs_clarification",
+        assistantMessage: "I can help with a shopping recommendation, a product policy or fact, a product relationship search, an in-stock product search, or a visual preview. What would you like to do?"
+      };
+    }
 
-    await appendMessage(session, "assistant", result.assistantMessage);
+    await appendMessage(session, "assistant", result.assistantMessage || "");
     await saveSession(session);
 
     res.json({
       sessionId: session.sessionId,
-      extraction: extracted,
       ...result
     });
   } catch (error) {

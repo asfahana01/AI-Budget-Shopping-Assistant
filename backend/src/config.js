@@ -13,5 +13,7 @@ export const config = {
   openaiApiKey: process.env.OPENAI_API_KEY || "",
   openaiBaseUrl: (process.env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/$/, ""),
   openaiModel: process.env.OPENAI_MODEL || "gpt-4o-mini",
+  embeddingModel: process.env.EMBEDDING_MODEL || "text-embedding-3-small",
+  imageModel: process.env.OPENAI_IMAGE_MODEL || "gpt-image-1",
   visionModel: process.env.VISION_MODEL || process.env.OPENAI_MODEL || "gpt-4o-mini"
 };

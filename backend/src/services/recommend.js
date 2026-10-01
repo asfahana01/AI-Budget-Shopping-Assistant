@@ -32,7 +32,7 @@ function publicPayload(result) {
   return rest;
 }
 
-export async function buildRecommendation({ requirements, conversationHistory = [], visualContext = null }) {
+export async function buildRecommendation({ requirements, conversationHistory = [], visualContext = null, candidateProductIds = null }) {
   if (!requirements.budget || requirements.budget <= 0) {
     return {
       status: "needs_clarification",
@@ -50,8 +50,11 @@ export async function buildRecommendation({ requirements, conversationHistory = 
 
   const raw = await fetchProductsFromApi();
   const processed = processProductPipeline(raw, requirements, visualContext);
+  const candidates = candidateProductIds
+    ? processed.allRanked.filter((product) => candidateProductIds.includes(product.productId))
+    : processed.allRanked;
   const optimization = optimizeBudget({
-    products: processed.allRanked,
+    products: candidates,
     items: requirements.items,
     budget: requirements.budget,
     preferences: requirements.preferences
@@ -59,7 +62,7 @@ export async function buildRecommendation({ requirements, conversationHistory = 
 
   const context = buildLlmContext({
     requirements,
-    products: processed.products,
+    products: candidateProductIds ? candidates.slice(0, 18) : processed.products,
     combinations: optimization.combinations,
     conversationHistory,
     visualContext,
