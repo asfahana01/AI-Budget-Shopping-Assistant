@@ -25,7 +25,7 @@ function deterministicAnswer(chunks) {
     .join(" ");
 }
 
-export async function answerWithRag(query, { useLlm = true, retrieval = null } = {}) {
+export async function answerWithRag(query, { useLlm = true, retrieval = null, generateAnswer = callChatModel } = {}) {
   const chunks = retrieval || await retrieveDocuments(query, { topK: 4, threshold: 0.06 });
   if (!hasRelevantContext(chunks)) {
     return { status: "insufficient_context", answer: RAG_INSUFFICIENT_ANSWER, sources: [], retrievedChunks: 0 };
@@ -35,7 +35,7 @@ export async function answerWithRag(query, { useLlm = true, retrieval = null } =
   let answer = deterministicAnswer(chunks);
   if (useLlm) {
     try {
-      const response = await callChatModel({
+      const response = await generateAnswer({
         system: GROUNDED_RAG_PROMPT,
         user: JSON.stringify({ query, retrievedContext: chunks.map(({ source, documentType, metadata, text }) => ({ source, documentType, metadata, text })) }),
         json: false
