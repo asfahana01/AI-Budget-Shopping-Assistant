@@ -44,6 +44,30 @@ The repository does not contain retailer return, warranty, refund, or delivery t
 
 Sessions retain requirements and a rolling window of at most 20 messages. The bounded history supports follow-up questions while limiting stored conversation data and payload size. MongoDB persistence is optional; otherwise sessions live in process memory.
 
-## 12. Security and validation
+## 12. Real MCP transport is separate from the app's HTTP adapter
+
+The internal tool adapter remains the default shopping surface for the web app and direct API callers. A separate protocol server can also be started with the official MCP SDK using stdio transport. It reuses the same catalog and optimizer logic, but it is not the production app entrypoint. This keeps the browser-facing workflow stable while exposing an independently connected MCP tool surface for compatible clients.
+
+## 13. Few-shot prompting is a normalization aid, not a business-authority layer
+
+The few-shot examples in `prompts.js` guide the extraction model to normalize phrases such as "bag" to `backpack`, "watch" to `smartwatch`, and "college use" to a preference string. The optimizer and the product catalog remain authoritative for budget totals, product IDs, and availability.
+
+## 14. Model comparison is isolated from production recommendations
+
+The `/api/evaluate/models` endpoint can compare allowlisted models on a prompt, but it never selects products, computes authoritative totals, or overrides the optimizer. It is an evaluation and learning endpoint only, and each model result is handled independently so one failure does not cancel the rest.
+
+## 15. Public API data is optional and cannot override local inventory authority
+
+The external product API is a demonstration layer only. It validates and normalizes external data before it is filtered by the same catalog pipeline used internally, but the verified local catalog remains the authoritative source for product IDs, prices, availability, and budget decisions. If the external provider is unavailable or malformed, the backend falls back to the existing verified catalog.
+
+## 16. Model names are server-side allowlisted
+
+The comparison endpoint accepts only model names listed in `MODEL_EVAL_ALLOWLIST`, so the browser cannot submit arbitrary provider names or privileged model identifiers. This keeps the server-side model pool explicit and prevents accidental or malicious exposure of hidden provider options.
+
+## 17. Python is optional and educational only
+
+The repository remains JavaScript/Node.js because that is the production runtime. The small Python script in `tools/` is included only as a learning demonstration of equivalent catalog-cleaning and summarization ideas; it does not participate in runtime logic, API calls, or production calculations.
+
+## 18. Security and validation
 
 Zod validates request bodies, product identifiers, budgets, and tool inputs. Product values are always loaded from the backend catalog. Uploaded images have size limits. Provider credentials remain in environment variables and are never passed to the browser or tool results. Provider failures return safe fallback messages rather than raw credentials or stack traces.
