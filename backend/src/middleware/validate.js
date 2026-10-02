@@ -37,6 +37,11 @@ export const optimizeSchema = z.object({
   preferences: z.array(z.string().max(80)).max(12).optional()
 });
 
+export const modelEvaluationSchema = z.object({
+  prompt: z.string().trim().min(1).max(2000),
+  models: z.array(z.string().trim().min(1).max(80)).min(1).max(10)
+});
+
 export function validate(schema, payload) {
   const parsed = schema.safeParse(payload);
   if (!parsed.success) {
