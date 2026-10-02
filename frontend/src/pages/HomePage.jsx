@@ -21,13 +21,24 @@ export default function HomePage() {
     setMessages((prev) => [...prev, { role: "user", content: message }]);
     try {
       const data = await sendChat(message);
-      setMessages((prev) => [...prev, { role: "assistant", content: data.assistantMessage }]);
+      setMessages((prev) => [...prev, {
+        role: "assistant",
+        content: data.assistantMessage || data.answer || "",
+        route: data.route,
+        status: data.status,
+        sources: data.sources || [],
+        retrievedChunks: data.retrievedChunks,
+        graph: data.graph,
+        toolName: data.toolName,
+        toolResult: data.toolResult,
+        preview: data.preview
+      }]);
       setResult(data);
       if (data.requirements?.budget) setBudgetInput(String(data.requirements.budget));
     } catch (err) {
       const note = apiErrorMessage(err);
       setError(note);
-      setMessages((prev) => [...prev, { role: "assistant", content: note }]);
+      setMessages((prev) => [...prev, { role: "assistant", content: note, status: "error" }]);
     } finally {
       setLoading(false);
     }
