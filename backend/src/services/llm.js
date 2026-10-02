@@ -1,5 +1,5 @@
 import { config } from "../config.js";
-import { CHAT_REPLY_PROMPT, EXTRACTION_PROMPT, SYSTEM_PROMPT, VISION_PROMPT } from "./prompts.js";
+import { CHAT_REPLY_PROMPT, EXTRACTION_PROMPT, FEW_SHOT_EXTRACTION_PROMPT, SYSTEM_PROMPT, VISION_PROMPT } from "./prompts.js";
 
 function extractJson(text) {
   if (!text) return null;
@@ -19,7 +19,7 @@ export function hasLlmKey() {
   return Boolean(config.openaiApiKey);
 }
 
-export async function callChatModel({ system, user, json = true }) {
+export async function callChatModel({ system, user, json = true, model = config.openaiModel, temperature = 0.3 }) {
   if (!hasLlmKey()) return null;
 
   const response = await fetch(`${config.openaiBaseUrl}/chat/completions`, {
@@ -29,8 +29,8 @@ export async function callChatModel({ system, user, json = true }) {
       Authorization: `Bearer ${config.openaiApiKey}`
     },
     body: JSON.stringify({
-      model: config.openaiModel,
-      temperature: 0.3,
+      model,
+      temperature,
       response_format: json ? { type: "json_object" } : undefined,
       messages: [
         { role: "system", content: system },
@@ -134,7 +134,7 @@ export async function generateChatReply(context, structured) {
 export async function extractWithLlm(message, priorRequirements) {
   try {
     return await callChatModel({
-      system: EXTRACTION_PROMPT,
+      system: `${FEW_SHOT_EXTRACTION_PROMPT}\n\n${EXTRACTION_PROMPT}`,
       user: JSON.stringify({ message, priorRequirements }),
       json: true
     });

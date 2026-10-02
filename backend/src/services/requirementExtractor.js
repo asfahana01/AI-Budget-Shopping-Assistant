@@ -7,12 +7,18 @@ const ITEM_PATTERN = new RegExp(
 );
 
 function parseBudget(text) {
-  const rupee = text.match(/(?:₹|rs\.?|inr)\s*([0-9][0-9,]*)/i);
-  const under = text.match(/\b(?:under|below|within|budget(?:\s+of)?)\s*(?:₹|rs\.?|inr)?\s*([0-9][0-9,]*)/i);
-  const dollars = text.match(/\$\s*([0-9][0-9,]*)/);
-  if (rupee) return { budget: Number(rupee[1].replace(/,/g, "")), currency: "INR" };
-  if (under) return { budget: Number(under[1].replace(/,/g, "")), currency: "INR" };
-  if (dollars) return { budget: Number(dollars[1].replace(/,/g, "")), currency: "USD" };
+  const parseNumber = (match) => {
+    const value = match[1].replace(/,/g, "");
+    const multiplier = ((match[2] || "").toLowerCase() === "k") ? 1000 : 1;
+    return Number(value) * multiplier;
+  };
+
+  const rupee = text.match(/(?:₹|rs\.?|inr)\s*([0-9][0-9,]*)(?:\s*(k))?/i);
+  const under = text.match(/\b(?:under|below|within|budget(?:\s+of)?)\s*(?:₹|rs\.?|inr)?\s*([0-9][0-9,]*)(?:\s*(k))?/i);
+  const dollars = text.match(/\$\s*([0-9][0-9,]*)(?:\s*(k))?/i);
+  if (rupee) return { budget: parseNumber(rupee), currency: "INR" };
+  if (under) return { budget: parseNumber(under), currency: "INR" };
+  if (dollars) return { budget: parseNumber(dollars), currency: "USD" };
   return { budget: null, currency: null };
 }
 
