@@ -22,7 +22,7 @@ Graph retrieval identifies candidate product IDs only. The normal product pipeli
 
 ## 6. Tools reuse existing services
 
-`search_products`, `get_product_details`, `check_budget_bundle`, and `get_policy` call the product API, processing pipeline, optimizer, and RAG service. This avoids a second implementation of catalog cleaning or budget arithmetic. The current MCP layer is an internal validated adapter exposed over HTTP, not a protocol-speaking MCP server.
+`search_products`, `get_product_details`, `check_budget_bundle`, and `get_policy` call the product API, processing pipeline, optimizer, and RAG service. This avoids a second implementation of catalog cleaning or budget arithmetic. The project contains both an internal HTTP tool adapter and a separate official MCP protocol server using stdio transport.
 
 ## 7. Generated images are previews
 
