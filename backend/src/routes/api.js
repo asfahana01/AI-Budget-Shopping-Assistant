@@ -7,9 +7,11 @@ import { analyzeProductImage } from "../services/vision.js";
 import { extractRequirements } from "../services/requirementExtractor.js";
 import { buildRecommendation, conversationalRecommend } from "../services/recommend.js";
 import { appendMessage, getSession, saveSession } from "../services/sessionStore.js";
-import { chatSchema, graphQuerySchema, imagePreviewSchema, optimizeSchema, recommendSchema, toolRequestSchema, validate } from "../middleware/validate.js";
+import { chatSchema, graphQuerySchema, imagePreviewSchema, modelEvaluationSchema, optimizeSchema, recommendSchema, toolRequestSchema, validate } from "../middleware/validate.js";
 import { normalizeCategory } from "../utils/normalize.js";
 import { knowledgeQuerySchema } from "../middleware/validate.js";
+import { fetchExternalProducts } from "../services/externalProductApi.js";
+import { evaluateModels, validateModelRequest } from "../services/modelEvaluation.js";
 import { answerWithRag } from "../services/rag/ragAnswer.js";
 import { queryProductGraph } from "../services/graph/graphRetriever.js";
 import { buildGraphContext } from "../services/graph/graphContext.js";
@@ -90,6 +92,34 @@ apiRouter.get("/products", async (req, res, next) => {
     });
   } catch (error) {
     error.message = error.message || "PRODUCT_API_FAILURE";
+    next(error);
+  }
+});
+
+apiRouter.get("/external-products", async (_req, res, next) => {
+  try {
+    const result = await fetchExternalProducts();
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+apiRouter.post("/evaluate/models", async (req, res, next) => {
+  try {
+    const body = validate(modelEvaluationSchema, req.body);
+    const validation = validateModelRequest(body);
+    if (!validation.ok) {
+      return res.status(400).json({
+        prompt: body.prompt,
+        results: [],
+        message: validation.message,
+        requireTwoModels: validation.requireTwoModels === true
+      });
+    }
+    const result = await evaluateModels(body);
+    res.json(result);
+  } catch (error) {
     next(error);
   }
 });

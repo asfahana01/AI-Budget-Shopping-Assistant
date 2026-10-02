@@ -29,7 +29,12 @@ flowchart TD
   Router --> Image[Optional image preview generation]
 ```
 
-The tool adapter is an internal validated JSON adapter, not an MCP-protocol server. It reuses the existing services and is exposed to the app through HTTP.
+The project keeps two distinct tool surfaces:
+
+- Internal HTTP tool adapter: validated JSON tools that power the frontend and the app's in-process shopping workflow.
+- Real MCP protocol server: an optional stdio-based protocol server implemented with the official MCP SDK and started separately via `npm run mcp --prefix backend`.
+
+The internal adapter remains the supported app entrypoint, while the protocol server is intentionally isolated for MCP clients and evaluation use.
 
 ## Responsibility Boundaries
 
@@ -60,6 +65,8 @@ All paths below are relative to `/api`. The API key column describes whether the
 | `POST /api/knowledge/query` | `{"query":"Can opened headphones be returned?"}` | Grounded answer, source names/scores, retrieved chunk count, or insufficient context. | No; optional for generated answer wording |
 | `POST /api/graph/query` | `{"query":"Which in-stock backpacks are water resistant?"}` | Related products, seed nodes, graph context, and source product IDs. | No |
 | `POST /api/tools/:toolName` | Example: `/api/tools/search_products` with `{"input":{"query":"wireless headphones","category":"headphones","maxPrice":2000,"inStockOnly":true}}` | Structured tool result or safe structured error. | No; `get_policy` may use an optional LLM |
+| `POST /api/evaluate/models` | `{"prompt":"Explain why this verified bundle fits the budget.","models":["gpt-4o-mini","another-model"]}` | Structured comparison results for allowlisted models; failures are isolated per model. | Optional; model names are server-side allowlisted |
+| `GET /api/external-products` | Optional public product JSON enrichment demo. | Normalized external-product result with fallback-safe message, count, and pipeline stats. | No; server-side provider settings only |
 | `POST /api/generate-shopping-preview` | `{"productIds":["P105","P201"],"style":"minimal college desk setup"}` | Generated URL and the preview disclaimer, or safe unavailable response. | Optional; generation requires configured image access |
 
 Other tool names are `get_product_details`, `check_budget_bundle`, and `get_policy`. Inputs are validated by Zod. For example:
@@ -96,6 +103,10 @@ Create `backend/.env` as needed. Never commit provider credentials.
 | `EMBEDDING_MODEL` | `text-embedding-3-small` | Embeddings model. |
 | `VISION_MODEL` | `OPENAI_MODEL` or `gpt-4o-mini` | Vision model. |
 | `OPENAI_IMAGE_MODEL` | `gpt-image-1` | Image-generation model. |
+| `MODEL_EVAL_ALLOWLIST` | `gpt-4o-mini,another-model` | Allowed model names for the isolated evaluation endpoint. |
+| `EXTERNAL_PRODUCT_API_URL` | empty | Optional public product JSON enrichment endpoint. |
+| `EXTERNAL_PRODUCT_API_ENABLED` | `false` | Enables the optional external enrichment demo. |
+| `EXTERNAL_PRODUCT_API_TIMEOUT_MS` | `5000` | Timeout for public API enrichment requests. |
 
 ### Fallbacks and Knowledge Sources
 
@@ -125,7 +136,26 @@ Run checks:
 ```powershell
 npm test --prefix backend
 npm run build --prefix frontend
+npm run mcp --prefix backend
 ```
+
+The MCP server uses the official stdio transport and exposes the same validated shopping tools as the internal adapter: `search_products`, `get_product_details`, `check_budget_bundle`, and `get_policy`.
+
+### Few-shot prompting
+
+The backend adds a few-shot requirement-extraction prompt to the shopping workflow so item and preference normalization can follow the same patterns as the verified examples, while still grounding every recommendation in the backend catalog and budget optimizer.
+
+### Model comparison endpoint
+
+The evaluation endpoint is isolated from production recommendation logic. Clients can only submit names already allowlisted on the server, and comparison results are purely informative. It does not select products or alter budget totals.
+
+### Optional external API demo
+
+The app can optionally fetch public JSON product data, validate and normalize it, and filter it through the existing backend pipeline. The local catalog remains the authoritative source of truth; external data never overrides verified totals or stock status.
+
+### Python learning compatibility
+
+The optional Python script under `tools/` demonstrates equivalent JSON catalog cleaning and category summaries for educational purposes. It is not part of the production runtime and does not power the application.
 
 ## Security and Guarantees
 
