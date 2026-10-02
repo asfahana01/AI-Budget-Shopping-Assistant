@@ -20,7 +20,21 @@ export default function RecommendationPanel({ result, loading, error }) {
     );
   }
 
-  if (!result || result.status === "needs_clarification") {
+  if (!result) {
+    return (
+      <div className="rounded-3xl bg-moss px-8 py-10 text-paper shadow-card">
+        <p className="text-sm uppercase tracking-[0.2em] text-sand">Waiting for details</p>
+        <h2 className="mt-3 font-display text-3xl">Tell me a budget and what to buy</h2>
+        <p className="mt-4 max-w-md text-paper/80">
+          Example: “I have ₹5000. I need a backpack, headphones and a smartwatch for college.”
+        </p>
+      </div>
+    );
+  }
+
+  if (result.route && !result.recommendation) return null;
+
+  if (result.status === "needs_clarification") {
     return (
       <div className="rounded-3xl bg-moss px-8 py-10 text-paper shadow-card">
         <p className="text-sm uppercase tracking-[0.2em] text-sand">Waiting for details</p>
@@ -47,7 +61,7 @@ export default function RecommendationPanel({ result, loading, error }) {
   return (
     <div className="space-y-6">
       <section className="rounded-3xl bg-white p-6 shadow-card ring-1 ring-sand md:p-8">
-        <p className="text-sm uppercase tracking-[0.2em] text-clay">AI recommended shopping list</p>
+        <p className="text-sm uppercase tracking-[0.2em] text-clay">Verified shopping recommendation</p>
         <h2 className="mt-2 font-display text-3xl">Your verified bundle</h2>
         <div className="mt-6 grid gap-4 md:grid-cols-3">
           {products.map((product) => (

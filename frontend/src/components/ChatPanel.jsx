@@ -1,3 +1,5 @@
+import ResponseRouter from "./ResponseRouter.jsx";
+
 export default function ChatPanel({
   messages,
   input,
@@ -26,7 +28,11 @@ export default function ChatPanel({
               message.role === "user" ? "ml-auto bg-moss text-paper" : "bg-paper text-ink"
             }`}
           >
-            <p className="whitespace-pre-line">{message.content}</p>
+            {message.role === "assistant" ? (
+              <ResponseRouter message={message} />
+            ) : (
+              <p className="whitespace-pre-line">{message.content}</p>
+            )}
           </div>
         ))}
         {loading ? <p className="text-sm text-ink/50">Thinking…</p> : null}
