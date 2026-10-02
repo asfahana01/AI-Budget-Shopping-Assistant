@@ -6,6 +6,7 @@ import { answerWithAdaptiveRag, retrieveWithVerification } from "../src/services
 test("router classifies shopping, knowledge, graph, tool, image, and unknown requests", () => {
   assert.equal(routeQuery("I have ₹5000 and need a backpack"), "shopping");
   assert.equal(routeQuery("Can I return opened headphones?"), "knowledge");
+  assert.equal(routeQuery("Can opened headphones be returned?"), "knowledge");
   assert.equal(routeQuery("Which wireless headphones with long battery fit with a backpack?"), "graph");
   assert.equal(routeQuery("Search in-stock headphones under ₹2000"), "tool");
   assert.equal(routeQuery("Create a visual bundle preview"), "image_generation");
