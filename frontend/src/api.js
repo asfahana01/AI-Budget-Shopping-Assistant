@@ -45,6 +45,26 @@ export async function recommend(payload) {
   return data;
 }
 
+export async function queryKnowledge(query) {
+  const { data } = await client.post("/knowledge/query", { query });
+  return data;
+}
+
+export async function queryGraph(query) {
+  const { data } = await client.post("/graph/query", { query });
+  return data;
+}
+
+export async function callTool(toolName, input) {
+  const { data } = await client.post(`/tools/${encodeURIComponent(toolName)}`, { input });
+  return data;
+}
+
+export async function generateShoppingPreview(productIds, style = "") {
+  const { data } = await client.post("/generate-shopping-preview", { productIds, style });
+  return data;
+}
+
 export function apiErrorMessage(error) {
   return (
     error.response?.data?.message ||
