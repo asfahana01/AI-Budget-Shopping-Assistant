@@ -71,3 +71,27 @@ The repository remains JavaScript/Node.js because that is the production runtime
 ## 18. Security and validation
 
 Zod validates request bodies, product identifiers, budgets, and tool inputs. Product values are always loaded from the backend catalog. Uploaded images have size limits. Provider credentials remain in environment variables and are never passed to the browser or tool results. Provider failures return safe fallback messages rather than raw credentials or stack traces.
+
+## 19. Official shopping links are backend-owned
+
+The backend normalizes and validates every official product URL before it is ever returned in a recommendation or product list. This keeps storefront metadata separated from LLM-generated text and prevents browser-side code from inventing fake purchase pages. Product IDs, prices, availability, and optimizer totals remain authoritative on the server.
+
+## 20. The LLM never writes purchase URLs
+
+LLM explanations and chat text may describe the bundle, but they never create `officialUrl` values or modify the trusted catalog. A product page link may be shown only when the backend accepted a safe verified URL from an approved source or catalog entry, and the frontend treats all other cases as unavailable.
+
+## 21. Undocumented Amazon cart URLs are not used
+
+The project does not construct hidden Amazon cart URLs, product IDs, or cart automation links from local catalog IDs. Some retailer flows may require a verified product-specific page or an official shipping/cart API, but the app refuses to claim a cart operation unless a real, documented mechanism is present. The safe fallback remains a list of individual official product pages.
+
+## 22. Alternative combinations reuse backend product objects
+
+Alternative bundles are selected from the same backend-validated combination objects as the primary recommendation. This preserves product IDs, images, prices, ratings, availability, and `officialUrl` values, rather than reconstructing them in the browser from text fragments. The UI updates by selecting a different backend object, not by rewriting product data.
+
+## 23. Selected alternatives remain subject to deterministic budget validation
+
+Changing the selected bundle in the UI does not bypass the backend optimizer. The alternative payload still comes from an already validated backend combination, and each candidate must continue to satisfy `totalPrice <= budget` before it is displayed as a selectable option.
+
+## 24. Safe fallbacks replace fake links
+
+If the catalog does not contain a verified official URL, the app shows a clear unavailable state and the text “Official shopping link is not available for this product yet.” This meets the project requirement to avoid fake purchase links while still making the product state explicit in the interface.

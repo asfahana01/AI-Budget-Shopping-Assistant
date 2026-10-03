@@ -12,7 +12,9 @@ const productSchema = new mongoose.Schema(
     description: String,
     features: [String],
     image: String,
-    availability: { type: String, default: "in_stock" }
+    availability: { type: String, default: "in_stock" },
+    officialUrl: { type: String, default: null },
+    officialUrlStatus: { type: String, default: "unavailable" }
   },
   { timestamps: true }
 );

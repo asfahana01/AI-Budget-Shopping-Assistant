@@ -1,4 +1,5 @@
 import { normalizeCategory, normalizePrice, normalizeRating } from "../utils/normalize.js";
+import { getVerifiedShoppingLink } from "../utils/officialLinks.js";
 
 function asArray(value) {
   if (Array.isArray(value)) return value.filter(Boolean).map(String);
@@ -19,19 +20,25 @@ export function cleanProducts(products) {
 }
 
 export function normalizeProducts(products) {
-  return products.map((item) => ({
-    productId: String(item.productId || item._id || item.name).trim(),
-    name: String(item.name).trim(),
-    category: normalizeCategory(item.category),
-    brand: String(item.brand || "Unknown").trim(),
-    color: String(item.color || "").trim(),
-    price: normalizePrice(item.price),
-    rating: normalizeRating(item.rating),
-    description: String(item.description || "").trim(),
-    features: asArray(item.features),
-    image: String(item.image || "").trim(),
-    availability: String(item.availability || "unknown").toLowerCase()
-  }));
+  return products.map((item) => {
+    const officialUrl = getVerifiedShoppingLink(item);
+
+    return {
+      productId: String(item.productId || item._id || item.name).trim(),
+      name: String(item.name).trim(),
+      category: normalizeCategory(item.category),
+      brand: String(item.brand || "Unknown").trim(),
+      color: String(item.color || "").trim(),
+      price: normalizePrice(item.price),
+      rating: normalizeRating(item.rating),
+      description: String(item.description || "").trim(),
+      features: asArray(item.features),
+      image: String(item.image || "").trim(),
+      availability: String(item.availability || "unknown").toLowerCase(),
+      officialUrl: officialUrl || null,
+      officialUrlStatus: officialUrl ? "available" : "unavailable"
+    };
+  });
 }
 
 export function dedupeProducts(products) {

@@ -307,6 +307,36 @@ Generated images never overwrite real catalog product images.
 
 The evaluation endpoint compares only server-allowlisted models. It is isolated from the production shopping workflow and cannot modify catalog data, product selection, prices, or budget totals.
 
+### Official shopping links and alternative selection
+
+The assistant surfaces verified shopping links only when the backend has accepted a safe HTTPS URL for that product. The app does not generate fake product pages, guessed Amazon search URLs, or hidden cart automation links.
+
+Rules enforced by the project:
+
+- `officialUrl` is validated in the backend and must use the `https://` protocol.
+- `http://`, `javascript:`, `data:`, and other unsafe protocols are rejected.
+- Missing or unverified links are shown as a safe fallback message instead of a clickable fake link.
+- Product cards render a "Shop product" action only when a verified product URL is present.
+- The main recommendation can be switched to any selected alternative combination.
+- Alternative cards show product thumbnails, totals, remaining budget, ratings, and a direct selection action.
+- Clicking a verified external shopping link opens a new tab using `target="_blank"` and `rel="noopener noreferrer"`.
+- Product-page links are not the same as cart automation; an official product page remains a safe page navigation and should not be described as a cart-add operation unless the retailer explicitly exposes and verifies that flow.
+
+How to add verified official URLs:
+
+- Add `officialUrl` to the verified product record in the backend catalog or database.
+- Keep the value as a single, exact HTTPS product page link.
+- Reject any non-HTTPS or manipulated retailer URL at validation time.
+- If a retailer has not provided a verified product page, leave the field as `null` and show the fallback message.
+
+Amazon/cart limitations:
+
+- The project does not construct undocumented Amazon cart URLs from a local product ID.
+- A product-specific shopping page is safe to show only when it is verified and exact.
+- A cart or multi-item checkout automation flow must be separately verified by the store and added behind a backend-only service before being claimed as supported.
+
+The backend remains the authority for product values, totals, and availability. The LLM can explain the recommendation, but it cannot generate or change purchase URLs.
+
 ### Optional external product API
 
 The external API demo can fetch public JSON product data and run it through the same validation and normalization pipeline. External data cannot automatically replace the verified local catalog.

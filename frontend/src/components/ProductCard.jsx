@@ -1,4 +1,8 @@
+import { isSafeExternalUrl } from "../utils/officialLinks.js";
+
 export default function ProductCard({ product, highlight = false }) {
+  const officialUrl = isSafeExternalUrl(product?.officialUrl) ? product.officialUrl : null;
+
   return (
     <article
       className={`overflow-hidden rounded-2xl bg-white shadow-card ring-1 ${
@@ -28,6 +32,25 @@ export default function ProductCard({ product, highlight = false }) {
             </li>
           ))}
         </ul>
+
+        {officialUrl ? (
+          <a
+            href={officialUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-3 inline-flex w-full items-center justify-center rounded-xl bg-moss px-3 py-2 text-sm font-medium text-paper transition hover:bg-moss/90 focus:outline-none focus:ring-2 focus:ring-clay"
+          >
+            Shop product
+          </a>
+        ) : (
+          <div className="mt-3 rounded-xl border border-sand bg-paper px-3 py-2 text-center text-sm text-ink/60">
+            Official link unavailable
+          </div>
+        )}
+
+        {!officialUrl ? (
+          <p className="text-xs text-ink/60">Official shopping link is not available for this product yet.</p>
+        ) : null}
       </div>
     </article>
   );
