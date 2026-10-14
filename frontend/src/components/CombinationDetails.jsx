@@ -30,7 +30,7 @@ export default function CombinationDetails({ combination, budget }) {
         </div>
         <div>
           <dt className="text-xs uppercase tracking-wide text-ink/50">Avg. rating</dt>
-          <dd className="font-display text-2xl">{combination?.averageRating ? combination.averageRating.toFixed(1) : "—"}</dd>
+          <dd className="font-display text-2xl">{Number.isFinite(combination?.averageRating) ? combination.averageRating.toFixed(1) : "—"}</dd>
         </div>
       </dl>
 

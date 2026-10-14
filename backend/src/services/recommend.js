@@ -15,6 +15,13 @@ function clarificationMessage(missing, requirements) {
   return "What would you like to buy? For example: backpack, headphones, and a smartwatch.";
 }
 
+function joinList(items) {
+  if (!items.length) return "none";
+  if (items.length === 1) return items[0];
+  if (items.length === 2) return `${items[0]} and ${items[1]}`;
+  return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
+}
+
 function noComboMessage(budget, optimization) {
   const extra = optimization.cheapestTotal
     ? ` The cheapest complete set I can form is about ${formatInr(optimization.cheapestTotal)}.`
@@ -70,16 +77,31 @@ export async function buildRecommendation({ requirements, conversationHistory = 
   });
 
   if (!optimization.ok) {
+    const missing = optimization.missing || [];
+    const availableRequestedItems = optimization.availableRequestedItems || [];
     const message =
       optimization.code === "NO_PRODUCTS_FOUND"
-        ? `I could not find in-stock products for: ${(optimization.missing || []).join(", ")}.`
-        : noComboMessage(requirements.budget, optimization);
+        ? (() => {
+            const missingList = missing.length ? missing : ["requested items"];
+            const availableList = availableRequestedItems.length ? availableRequestedItems : [];
+            const assistantMessage = availableList.length
+              ? `I found ${joinList(availableList)} products, but ${joinList(missingList)} are not currently available in the catalog. I will not substitute unrelated products.`
+              : `${joinList(missingList)} are not currently available in the catalog. I will not substitute unrelated products.`;
+            return {
+              message: `I could not find in-stock products for: ${joinList(missingList)}.`,
+              assistantMessage
+            };
+          })()
+        : { message: noComboMessage(requirements.budget, optimization), assistantMessage: noComboMessage(requirements.budget, optimization) };
 
     const narrative = await generateRecommendationNarrative(context);
     return {
       status: "error",
       code: optimization.code,
-      message,
+      message: message.message,
+      assistantMessage: message.assistantMessage,
+      missing,
+      availableRequestedItems,
       pipelineStats: processed.stats,
       products: processed.products,
       combinations: [],
@@ -102,7 +124,8 @@ export async function buildRecommendation({ requirements, conversationHistory = 
       ...rec,
       products: top.products,
       totalPrice: top.totalPrice,
-      remainingBudget: top.remainingBudget
+      remainingBudget: top.remainingBudget,
+      averageRating: top.averageRating
     },
     alternatives: optimization.combinations.slice(1),
     narrative: narrative.data,
@@ -142,7 +165,7 @@ export async function conversationalRecommend({ requirements, missing, conversat
     return {
       ...publicPayload(result),
       requirements,
-      assistantMessage: result.message
+      assistantMessage: result.assistantMessage || result.message
     };
   }
 

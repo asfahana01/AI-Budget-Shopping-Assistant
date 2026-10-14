@@ -5,23 +5,42 @@ import { connectMongo, mongoReady } from "../db.js";
 import { Product } from "../models/Product.js";
 import { normalizeCategory } from "../utils/normalize.js";
 
-const catalogPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../data/products.json");
+const catalogPath = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../data/products.json"
+);
 
 await connectMongo();
+
 if (!mongoReady) {
-  console.error("MongoDB is not connected. Start MongoDB or skip seeding and use the JSON catalog.");
+  console.error("MongoDB is not connected.");
   process.exit(1);
 }
 
-const raw = JSON.parse(await readFile(catalogPath, "utf8"));
-const docs = raw
-  .filter((item) => item?.productId && item?.name)
-  .map((item) => ({
-    ...item,
-    normalizedCategory: normalizeCategory(item.category)
-  }));
+try {
+  const raw = JSON.parse(await readFile(catalogPath, "utf8"));
 
-await Product.deleteMany({});
-await Product.insertMany(docs, { ordered: false }).catch(() => {});
-console.log(`Seeded ${docs.length} product documents`);
-process.exit(0);
+  const docs = raw
+    .filter((item) => item?.productId && item?.name)
+    .map((item) => ({
+      ...item,
+      normalizedCategory: normalizeCategory(item.category)
+    }));
+
+  for (const item of docs) {
+    const { productId, ...updateFields } = item;
+
+    await Product.updateOne(
+      { productId },
+      { $set: updateFields, $setOnInsert: { productId } },
+      { upsert: true }
+    );
+  }
+
+  console.log(`Updated or inserted ${docs.length} product documents.`);
+} catch (error) {
+  console.error("Catalog seeding failed:", error);
+  process.exitCode = 1;
+} finally {
+  process.exit();
+}

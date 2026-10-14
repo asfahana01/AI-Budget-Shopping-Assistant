@@ -48,13 +48,29 @@ export function optimizeBudget({ products, items, budget, preferences = [], maxO
     return { ok: false, code: "INVALID_BUDGET", combinations: [] };
   }
 
-  const groups = items.map((item) =>
-    products.filter((product) => product.category === item)
+  const normalizedItems = [...new Set((items || []).map((item) => String(item).trim()).filter(Boolean))];
+  const availableRequestedItems = normalizedItems.filter((item) =>
+    (products || []).some((product) => product.category === item)
+  );
+  const missing = normalizedItems.filter((item) => !availableRequestedItems.includes(item));
+
+  if (missing.length) {
+    return {
+      ok: false,
+      code: "NO_PRODUCTS_FOUND",
+      missing,
+      availableRequestedItems,
+      combinations: []
+    };
+  }
+
+  const groups = normalizedItems.map((item) =>
+    (products || []).filter((product) => product.category === item)
   );
 
   if (groups.some((group) => group.length === 0)) {
-    const missing = items.filter((item, index) => groups[index].length === 0);
-    return { ok: false, code: "NO_PRODUCTS_FOUND", missing, combinations: [] };
+    const missing = normalizedItems.filter((item, index) => groups[index].length === 0);
+    return { ok: false, code: "NO_PRODUCTS_FOUND", missing, availableRequestedItems, combinations: [] };
   }
 
   const trimmed = groups.map((group) => group.slice(0, 6));

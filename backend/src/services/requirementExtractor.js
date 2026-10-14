@@ -48,14 +48,38 @@ function parsePreferences(text) {
   return [...new Set(prefs)];
 }
 
-function mergeRequirements(prior = {}, next = {}) {
-  const items = [...new Set([...(prior.items || []), ...(next.items || [])].map(normalizeCategory).filter(Boolean))];
-  const preferences = [...new Set([...(prior.preferences || []), ...(next.preferences || [])])];
+function detectRequestMode(message, priorRequirements = {}) {
+  const text = message.toLowerCase();
+  const replacementPattern = /\b(actually|instead|forget that|change it|new request|start over|something else)\b/i;
+  const additivePattern = /\b(also add|additionally|include|plus|another|add one more)\b/i;
+  const hasBudget = /(?:₹|rs\.?|inr|\$|\bunder\b|\bbelow\b|\bwithin\b|\bbudget\b)/i.test(text);
+  const extractedItems = parseItems(message);
+
+  if (replacementPattern.test(text)) return "replace";
+  if (additivePattern.test(text)) return "add";
+  if (hasBudget && extractedItems.length >= 2) return "replace";
+  if (!priorRequirements?.items?.length) return "replace";
+  return "continue";
+}
+
+function mergeRequirements(prior = {}, next = {}, mode = "replace") {
+  const priorItems = [...new Set((prior.items || []).map(normalizeCategory).filter(Boolean))];
+  const nextItems = [...new Set((next.items || []).map(normalizeCategory).filter(Boolean))];
+  const priorPreferences = [...new Set((prior.preferences || []).filter(Boolean))];
+  const nextPreferences = [...new Set((next.preferences || []).filter(Boolean))];
+
+  let items = nextItems;
+  if (mode === "add") {
+    items = [...new Set([...priorItems, ...nextItems])];
+  } else if (mode === "continue") {
+    items = nextItems.length ? (priorItems.length ? priorItems : nextItems) : priorItems;
+  }
+
   return {
     budget: next.budget ?? prior.budget ?? null,
     currency: next.currency || prior.currency || "INR",
     items,
-    preferences
+    preferences: mode === "replace" ? nextPreferences : [...new Set([...priorPreferences, ...nextPreferences])]
   };
 }
 
@@ -76,7 +100,8 @@ export async function extractRequirements(message, priorRequirements = {}) {
       }
     : heuristic;
 
-  const requirements = mergeRequirements(priorRequirements, mergedFromLlm);
+  const mode = detectRequestMode(message, priorRequirements);
+  const requirements = mergeRequirements(priorRequirements, mergedFromLlm, mode);
   const missing = [];
   if (!requirements.budget) missing.push("budget");
   if (!requirements.items.length) missing.push("items");
@@ -85,6 +110,7 @@ export async function extractRequirements(message, priorRequirements = {}) {
     requirements,
     missing,
     clarificationNeeded: missing.length > 0,
-    source: llmResult ? "heuristic+llm" : "heuristic"
+    source: llmResult ? "heuristic+llm" : "heuristic",
+    mode
   };
 }

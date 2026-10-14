@@ -20,7 +20,15 @@ export const CATEGORY_ALIASES = {
   bottle: "bottle",
   bottles: "bottle",
   mouse: "mouse",
-  mice: "mouse"
+  mice: "mouse",
+  perfume: "perfume",
+  perfumes: "perfume",
+  fragrance: "perfume",
+  fragrances: "perfume",
+  bedsheet: "bedsheet",
+  bedsheets: "bedsheet",
+  "bed sheet": "bedsheet",
+  "bed sheets": "bedsheet"
 };
 
 export const CATEGORY_KEYWORDS = Object.keys(CATEGORY_ALIASES);

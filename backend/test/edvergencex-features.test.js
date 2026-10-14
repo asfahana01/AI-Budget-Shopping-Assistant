@@ -6,6 +6,8 @@ import { extractRequirements } from "../src/services/requirementExtractor.js";
 import { evaluateModels, validateModelRequest } from "../src/services/modelEvaluation.js";
 import { fetchExternalProducts, normalizeExternalProduct } from "../src/services/externalProductApi.js";
 import { createProtocolServer } from "../src/mcp/protocolServer.js";
+import { optimizeBudget } from "../src/services/budgetOptimizer.js";
+import { normalizeCategory } from "../src/utils/normalize.js";
 
 test("few-shot prompting includes concrete shopping examples", () => {
   assert.match(FEW_SHOT_EXTRACTION_PROMPT, /Example 1:/i);
@@ -27,6 +29,51 @@ test("requirement extraction keeps budgets and preferences grounded in the reque
   assert.ok(result.requirements.preferences.includes("college use"));
   assert.ok(result.requirements.preferences.includes("good battery life"));
   assert.ok(!result.requirements.preferences.includes("laptop"));
+});
+
+test("fresh requests replace stale session requirements and preferences", async () => {
+  const result = await extractRequirements("I have ₹5000. I want a perfume, bedsheet and a bottle.", {
+    budget: 5000,
+    currency: "INR",
+    items: ["backpack", "headphones", "smartwatch"],
+    preferences: ["college use"]
+  });
+
+  assert.equal(result.requirements.budget, 5000);
+  assert.deepEqual(result.requirements.items, ["perfume", "bedsheet", "bottle"]);
+  assert.deepEqual(result.requirements.preferences, []);
+  assert.equal(result.mode, "replace");
+});
+
+test("follow-up budget messages preserve prior items without re-merging stale choices", async () => {
+  const result = await extractRequirements("My budget is ₹5000.", {
+    budget: 3000,
+    currency: "INR",
+    items: ["backpack", "headphones"],
+    preferences: ["college use"]
+  });
+
+  assert.equal(result.requirements.budget, 5000);
+  assert.deepEqual(result.requirements.items, ["backpack", "headphones"]);
+  assert.ok(result.requirements.preferences.includes("college use"));
+  assert.ok(result.requirements.preferences.includes("value for money"));
+  assert.equal(result.mode, "continue");
+});
+
+test("unsupported requested categories are normalized and reported as missing", () => {
+  assert.equal(normalizeCategory("bed sheet"), "bedsheet");
+  assert.equal(normalizeCategory("perfume"), "perfume");
+
+  const result = optimizeBudget({
+    products: [{ category: "bottle" }],
+    items: ["perfume", "bedsheet", "bottle"],
+    budget: 5000,
+    preferences: []
+  });
+
+  assert.equal(result.code, "NO_PRODUCTS_FOUND");
+  assert.deepEqual(result.missing, ["perfume", "bedsheet"]);
+  assert.deepEqual(result.availableRequestedItems, ["bottle"]);
 });
 
 test("model evaluation accepts allowlisted models and rejects others", async () => {

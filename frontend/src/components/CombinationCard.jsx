@@ -20,7 +20,7 @@ export default function CombinationCard({ combo, index, isSelected, onSelect, la
         </div>
         <div className="text-right text-sm text-ink/70">
           <p>{formatInr(combo.remainingBudget)} left</p>
-          <p>{combo.averageRating ? `${combo.averageRating.toFixed(1)} ★` : "Budget fit"}</p>
+          <p>{Number.isFinite(combo?.averageRating) ? `${combo.averageRating.toFixed(1)} ★` : "Budget fit"}</p>
         </div>
       </div>
 
@@ -36,7 +36,7 @@ export default function CombinationCard({ combo, index, isSelected, onSelect, la
       </div>
 
       <p className="mt-4 text-sm text-ink/70">
-        {products.map((product) => `${product.name} (${product.category})`).join(" · ")}
+        {products.map((product) => `${product.name} · ${product.category}`.replace(/\s+·\s+$/g, "")).join(" · ")}
       </p>
     </button>
   );
